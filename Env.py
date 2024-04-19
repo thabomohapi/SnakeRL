@@ -14,7 +14,7 @@ class Engine:
             cls._instance = cls()
         return cls._instance
     
-    def __init__(self, cell_size=25, cell_number=30, fps=45) -> None:
+    def __init__(self, cell_size=25, cell_number=30, fps=60) -> None:
         if Engine._instance is not None: 
             raise Exception("This is a singleton class!")
         else: 
@@ -45,18 +45,17 @@ class Engine:
         self.death = False
         self.key_map = self.create_key_map()
         self.start_timer = pygame.time.get_ticks()
-        self.key_press_queue = []
 
     def create_key_map(self):
         return {
-            pygame.K_w: Vec2(0, -1),
-            pygame.K_UP: Vec2(0, -1),
-            pygame.K_d: Vec2(1, 0),
-            pygame.K_RIGHT: Vec2(1, 0),
-            pygame.K_a: Vec2(-1, 0),
-            pygame.K_LEFT: Vec2(-1, 0),
-            pygame.K_s: Vec2(0, 1),
-            pygame.K_DOWN: Vec2(0, 1)
+            self.e.K_w: Vec2(0, -1),
+            self.e.K_UP: Vec2(0, -1),
+            self.e.K_d: Vec2(1, 0),
+            self.e.K_RIGHT: Vec2(1, 0),
+            self.e.K_a: Vec2(-1, 0),
+            self.e.K_LEFT: Vec2(-1, 0),
+            self.e.K_s: Vec2(0, 1),
+            self.e.K_DOWN: Vec2(0, 1)
         }
 
     def load_image(self, path: str) -> None:
@@ -64,21 +63,12 @@ class Engine:
         return self.e.transform.scale(image, (self.width, self.height))
     
     def update(self) -> None:
-        self.process_key_press_queue()
         if not self.snake.direction.zero:
             self.snake.move()
         self.check_collision()
         self.fruits[1].update()
         for obs in self.obstacles:
             obs.update_occupied_positions()
-
-    def process_key_press_queue(self) -> None:
-        while self.key_press_queue:
-            key = self.key_press_queue.pop(0)
-            direction = self.key_map.get(key)
-            if direction and self.snake.direction != direction.negate():
-                self.snake.direction = direction
-                break
 
     def check_collision(self) -> None:
         head = self.snake.head
@@ -108,7 +98,7 @@ class Engine:
 
     def handle_keys(self, keys) -> None:
         for key, direction in self.key_map.items():
-            if keys[key] and self.snake.direction != direction.negate():
+            if keys[key] and direction + self.snake.head != self.snake.body[1]: # check if direction is valid and not to the snake's neck
                 self.snake.direction = direction
                 break
 

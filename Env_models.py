@@ -17,8 +17,7 @@ class Snake(GameObject):
         self.direction = Vec2(0, 0)
         self.snakeLength = len(self.body)
         self.score = self.snakeLength
-        self.engine.occupied_positions = { self.engine.add_occupied_position(x)
-                                           for x in self.body }
+        for x in self.body: self.engine.add_occupied_position(x)
         self.grow = False
         self.shrink = False
         self.death = False
@@ -109,9 +108,9 @@ class Obstacle(GameObject):
         for _ in range(1, self.num_blocks):
             # generate the rest of the blocks based on the start_position
             new_block = self.randomize_adjacent(blocks)
-            self.engine.add_occupied_position(new_block)
             blocks.append(new_block)
-
+            
+        self.update_occupied_positions()
         return blocks
 
     def randomize_position(self) -> 'Vec2':
