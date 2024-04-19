@@ -99,15 +99,27 @@ class Food(GameObject):
         self.update_position()
 
     def update_position(self):
-        all_possible_positions = set(Vec2(x, y) for x in range(self.engine.cell_number) for y in range(self.engine.cell_number))
-        unoccupied_positions = list(all_possible_positions - self.engine.occupied_positions)
-
-        if unoccupied_positions:
-            self.position = random.choice(unoccupied_positions)
+        valid_positions = self.find_valid_food_positions()
+        if valid_positions:
+            self.position = random.choice(valid_positions)
             self.pos = (int(self.position.x * self.engine.cell_size), int(self.position.y * self.engine.cell_size))
             self.engine.add_occupied_position(self.position)
         else:
-            print("No unoccupied positions available")
+            print("No valid food positions available")
+
+    def find_valid_food_positions(self):
+        # Get all possible positions on the board
+        all_possible_positions = set(Vec2(x, y) for x in range(self.engine.cell_number) for y in range(self.engine.cell_number))
+        # Filter out positions occupied by the snake or obstacles
+        valid_positions = all_possible_positions - self.engine.occupied_positions
+        # Filter out positions that would trap the snake
+        valid_positions = [pos for pos in valid_positions if self.is_reachable_by_snake(pos)]
+        return valid_positions
+    
+    def is_reachable_by_snake(self, pos: Vec2) -> bool:
+        # Check if the position is reachable by the snake
+        # i.e., not blocked by obstacles
+        return pos not in self.engine.obstacles
 
     def draw(self) -> None:
         color = (0, 178, 0) if self.is_good else (139, 0, 0)
@@ -208,3 +220,98 @@ class Obstacle(GameObject):
                 obstacle.update_occupied_positions()
             return obstacles
         return NotImplemented
+    
+
+
+# 1. ================================ Todo [Later On!] ================================
+# class Obstacle:
+#     def __init__(self, engine, position):
+#         self.engine = engine
+#         self.position = position
+#         self.blocks = [position]  # List of positions this obstacle occupies
+
+#     def draw(self):
+#         # Draw the obstacle on the screen
+#         pass
+
+#     def update_occupied_positions(self):
+#         # Update the set of occupied positions in the engine
+#         for pos in self.blocks:
+#             self.engine.add_occupied_position(pos)
+
+# # Specialized obstacle types
+# class Wall(Obstacle):
+#     def __init__(self, engine, position, length, orientation):
+#         super().__init__(engine, position)
+#         self.length = length
+#         self.orientation = orientation
+#         self.create_wall()
+
+#     def create_wall(self):
+#         # Create a wall of blocks based on length and orientation
+#         pass
+
+#     def draw(self):
+#         # Draw the wall on the screen
+#         pass
+
+# class MovingObstacle(Obstacle):
+#     def __init__(self, engine, position, path):
+#         super().__init__(engine, position)
+#         self.path = path  # Path the obstacle will move along
+#         self.current_path_index = 0
+
+#     def move(self):
+#         # Move the obstacle along its path
+#         pass
+
+#     def draw(self):
+#         # Draw the moving obstacle on the screen
+#         pass
+
+# # How to add these obstacles to the game
+# def add_obstacles(engine):
+#     # Add a static wall
+#     wall = Wall(engine, Vec2(5, 5), length=10, orientation='horizontal')
+#     engine.obstacles.append(wall)
+
+#     # Add a moving obstacle
+#     moving_obstacle = MovingObstacle(engine, Vec2(10, 10), path=[Vec2(0, 1), Vec2(1, 0)])
+#     engine.obstacles.append(moving_obstacle)
+
+# 2. ============================ Todo [Power-Ups] =================================
+# class PowerUp(GameObject):
+#     def __init__(self, engine, position):
+#         super().__init__(engine)
+#         self.position = position
+#         self.collected = False
+
+#     def apply_effect(self, player):
+#         # Apply the power-up effect to the player
+#         pass
+
+#     def draw(self):
+#         # Draw the power-up on the screen
+#         pass
+
+# class SpeedBoost(PowerUp):
+#     def apply_effect(self, player):
+#         # Increase the player's speed
+#         player.speed *= 1.5
+#         # Set a timer to end the effect
+#         self.engine.set_timer('speed_boost_end', 10)  # Ends after 10 seconds
+
+# class ExtraLife(PowerUp):
+#     def apply_effect(self, player):
+#         # Give the player an extra life
+#         player.lives += 1
+
+# # Method of adding power-ups to the game
+# def add_power_ups(engine):
+#     # Add a speed boost power-up
+#     speed_boost = SpeedBoost(engine, Vec2(10, 10))
+#     engine.power_ups.append(speed_boost)
+
+#     # Add an extra life power-up
+#     extra_life = ExtraLife(engine, Vec2(15, 15))
+#     engine.power_ups.append(extra_life)
