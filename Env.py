@@ -9,7 +9,7 @@ from Env_events import EventManager
 class Engine:
     _instance = None
     
-    def __init__(self, cell_size=25, cell_number=30, fps=60) -> None:
+    def __init__(self, cell_size=25, cell_number=25, fps=60) -> None:
         if Engine._instance is not None: 
             raise Exception("This is a singleton class!")
         else: 
