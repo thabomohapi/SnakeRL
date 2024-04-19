@@ -11,17 +11,10 @@ class GameObject:
         raise NotImplementedError("Update method must be implemented!")
     
 class Snake(GameObject):
-    def __init__(self, engine: object) -> None:
+    def __init__(self, engine: object, size: int = 3) -> None:
         super().__init__(engine)
-        self.body = [Vec2(5, 10), Vec2(4, 10), Vec2(3, 10)]
-        self.direction = Vec2(0, 0)
-        self.snakeLength = len(self.body)
-        self.score = self.snakeLength
-        for x in self.body: self.engine.add_occupied_position(x)
-        self.grow = False
-        self.shrink = False
-        self.death = False
-        self.update_head_tail()
+        self.init_snakeLength = size
+        self.reset()
 
     def update_head_tail(self):
         self.head = self.body[0]
@@ -57,8 +50,45 @@ class Snake(GameObject):
                 
         self.update_head_tail()
 
+    def find_valid_starting_position(self) -> list:
+        # Define the length of the snake to spawn
+        snake_length = 3
+        # Get all possible starting positions
+        all_possible_positions = set(Vec2(x, y) for x in range(self.engine.cell_number) for y in range(self.engine.cell_number))
+        # Filter out positions that don't have enough space for the snake's body
+        valid_starting_positions = [pos for pos in all_possible_positions if self.has_enough_space(pos, snake_length)]
+        # Randomly choose one of the valid starting positions
+        if valid_starting_positions:
+            start_pos = random.choice(valid_starting_positions)
+            # Create the snake's body based on the starting position
+            return [start_pos + Vec2(-i, 0) for i in range(snake_length)]
+        return None
+    
+    def has_enough_space(self, start_pos: 'Vec2', length: int) -> bool:
+        # Check if there's enough unoccupied space to spawn the snake
+        for i in range(length):
+            next_pos = start_pos + Vec2(-i, 0)
+            if not (0 <= next_pos.x < self.engine.cell_number and
+                    0 <= next_pos.y < self.engine.cell_number and
+                    next_pos not in self.engine.occupied_positions):
+                return False
+        return True
+
     def reset(self) -> None:
-        self.__init__(self.engine)
+        # Find a valid starting position for the snake's head
+        self.body = self.find_valid_starting_position()
+        if self.body:
+            self.direction = Vec2(0, 0)  # Set initial direction to stationary
+            self.snakeLength = len(self.body)
+            self.score = self.snakeLength
+            self.grow = False
+            self.shrink = False
+            self.death = False
+            for pos in self.body:
+                self.engine.add_occupied_position(pos)
+            self.update_head_tail()
+        else:
+            print("No valid starting positions available to spawn the snake.")
 
 class Food(GameObject):
     def __init__(self, is_good: bool, engine: object) -> None:
@@ -81,8 +111,11 @@ class Food(GameObject):
 
     def draw(self) -> None:
         color = (0, 178, 0) if self.is_good else (139, 0, 0)
-        rect = self.engine.e.Rect(*self.pos, self.engine.cell_size, self.engine.cell_size)
-        self.engine.e.draw.rect(self.engine.screen, color, rect)
+        # Calculate the center of the cell where the food will be drawn
+        center_pos = (int(self.position.x * self.engine.cell_size + self.engine.cell_size // 2),
+                      int(self.position.y * self.engine.cell_size + self.engine.cell_size // 2))
+        # Draw a circle at the center_pos with a radius of half the cell size
+        self.engine.e.draw.circle(self.engine.screen, color, center_pos, self.engine.cell_size // 2)
 
     def update(self, ate : bool = False, died: bool = False) -> None:
         if self.is_good or ate or died: self.update_position()
