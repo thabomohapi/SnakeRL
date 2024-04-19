@@ -1,18 +1,13 @@
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
-import pygame
+import pygame # type: ignore
 from Env_models import Snake, Food, Obstacle, Vec2
-from Env_view import GameView
+from Env_view import Renderer
+from Env_events import EventManager
 
 class Engine:
     _instance = None
-
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
     
     def __init__(self, cell_size=25, cell_number=30, fps=60) -> None:
         if Engine._instance is not None: 
@@ -29,22 +24,41 @@ class Engine:
         self.cell_size = cell_size
         self.cell_number = cell_number
         self.fps = fps
-        self.width = self.cell_number * self.cell_size
+        self.width = ( self.cell_number * self.cell_size )
+        self.side_panel_width = self.width // 3
+        self.width += self.side_panel_width
         self.height = self.cell_number * self.cell_size
         self.screen = self.e.display.set_mode((self.width, self.height))
         self.clock = self.e.time.Clock()
         self.SCREEN_UPDATE = self.e.USEREVENT
-
-    def initialize_game_objects(self):
         self.occupied_positions = set()
-        self.obstacles = []
-        self.obstacles = 7 * Obstacle(self, 10)
-        self.snake = Snake(self)
-        self.fruits = (Food(True, self), Food(False, self))
-        self.view = GameView(self)
         self.death = False
+        self.running = False
         self.key_map = self.create_key_map()
         self.start_timer = pygame.time.get_ticks()
+
+    def initialize_game_objects(self):
+        self.initialize_obstacles()
+        self.initialize_agents()
+        self.initialize_food()
+        self.initialize_event_manager()
+        self.initialize_renderer()
+
+    def initialize_obstacles(self) -> None:
+        self.obstacles = []
+        self.obstacles = 15 * Obstacle(self, 5)
+
+    def initialize_agents(self) -> None:
+        self.snake = Snake(self)
+
+    def initialize_food(self) -> None:
+        self.fruits = (Food(True, self), Food(False, self))
+
+    def initialize_event_manager(self) -> None:
+        self.event_manager = EventManager(self)
+
+    def initialize_renderer(self) -> None:
+        self.renderer = Renderer(self)
 
     def create_key_map(self):
         return {
@@ -95,12 +109,6 @@ class Engine:
 
     def reset_occupied_positions(self, positions):
         self.occupied_positions = set(positions)
-
-    def handle_keys(self, keys) -> None:
-        for key, direction in self.key_map.items():
-            if keys[key] and direction + self.snake.head != self.snake.body[1]: # check if direction is valid and not to the snake's neck
-                self.snake.direction = direction
-                break
 
     def reset_game(self) -> None:
         self.snake.reset()
