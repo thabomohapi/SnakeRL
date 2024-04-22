@@ -4,6 +4,7 @@ class Vec2:
     def __init__(self, x: float, y: float) -> None:
         self.x = x
         self.y = y
+        self.reward = -1
 
     @property
     def zero(self) -> bool:
@@ -25,6 +26,9 @@ class Vec2:
     
     def __hash__(self) -> int:
         return hash((self.x, self.y))
+    
+    def __repr__(self) -> str:
+        return f"Vec2({self.x}, {self.y})"
     
     def __str__(self) -> str:
         return f"Vec2({self.x}, {self.y})"
