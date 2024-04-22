@@ -128,4 +128,4 @@ class Engine:
         for fruit in self.fruits:
             fruit.update(self.env_state, self.death)
         self.death = False
-        print(self.env_state)
+        # print(self.env_state)
