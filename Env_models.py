@@ -139,7 +139,7 @@ class Food(GameObject):
         if ate or died: 
             self.update_position()
             self.last_update_time = time.time()
-            print(state)
+            # print(state)
         else:
             current_time = time.time()
             if current_time - self.last_update_time > self.update_interval:
