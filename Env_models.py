@@ -14,7 +14,7 @@ class Snake(GameObject):
     def __init__(self, engine: object, size: int = 3) -> None:
         super().__init__(engine)
         self.init_snakeLength = size
-        self.reset()
+        self.reset(self.engine.env_state)
 
     def update_head_tail(self):
         self.head = self.body[0]
@@ -74,7 +74,7 @@ class Snake(GameObject):
                 return False
         return True
 
-    def reset(self) -> None:
+    def reset(self, state) -> None:
         # Find a valid starting position for the snake's head
         self.body = self.find_valid_starting_position()
         if self.body:
@@ -85,8 +85,10 @@ class Snake(GameObject):
             self.shrink = False
             self.death = False
             for pos in self.body:
+                pos.reward = -100
                 self.engine.add_occupied_position(pos)
             self.update_head_tail()
+            state['snake'] = self.body
         else:
             print("No valid starting positions available to spawn the snake.")
 
@@ -94,15 +96,19 @@ class Food(GameObject):
     def __init__(self, is_good: bool, engine: object) -> None:
         super().__init__(engine)
         self.is_good = is_good
-        self.last_update_time = time.time() if not is_good else None
-        self.update_interval = 20 if not is_good else None# update position after every 20seconds
+        self.last_update_time = time.time()
+        self.update_interval = 20 # update position after every 20seconds
         self.update_position()
 
     def update_position(self):
         valid_positions = self.find_valid_food_positions()
         if valid_positions:
             self.position = random.choice(valid_positions)
+            self.position.reward = -1
             self.pos = (int(self.position.x * self.engine.cell_size), int(self.position.y * self.engine.cell_size))
+            if self.is_good:
+                self.position.reward = 10
+            else: self.position.reward = -10
             self.engine.add_occupied_position(self.position)
         else:
             print("No valid food positions available")
@@ -129,8 +135,11 @@ class Food(GameObject):
         # Draw a circle at the center_pos with a radius of half the cell size
         self.engine.e.draw.circle(self.engine.screen, color, center_pos, self.engine.cell_size // 2)
 
-    def update(self, ate : bool = False, died: bool = False) -> None:
-        if self.is_good or ate or died: self.update_position()
+    def update(self, state, ate : bool = False, died: bool = False) -> None:
+        if ate or died: 
+            self.update_position()
+            self.last_update_time = time.time()
+            print(state)
         else:
             current_time = time.time()
             if current_time - self.last_update_time > self.update_interval:
@@ -194,10 +203,11 @@ class Obstacle(GameObject):
 
     def update_occupied_positions(self) -> None:
         for block in self.blocks:
+            block.reward = -100
             self.engine.add_occupied_position(block)
 
     def find_further_position(self) -> 'Vec2':
-        min_distance = self.engine.cell_size * 6
+        min_distance = self.engine.cell_size * 10
         attempts = 0
         while attempts < 100: # limit the number of attempts to find a position from distance
             position = self.randomize_position()
