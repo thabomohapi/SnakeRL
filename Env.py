@@ -2,17 +2,20 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
 import pygame # type: ignore
+import numpy as np
 from Env_view import Renderer
-from Env_models import Snake, Food, Obstacle, Vec2
+from Env_models import Snake, Food, Obstacle
 from Env_events import EventManager
-from Env_contoller import GameController
+from Env_controller import GameController
+from Env_utils import Profiler, Vec2, Plotter
+from StateRep import StateRep
 
-DIRECTIONS = {
-    'UP': Vec2(0, -1),
-    'RIGHT': Vec2(1, 0),
-    'LEFT': Vec2(-1, 0),
-    'DOWN':Vec2(0, 1)
-}
+DIRECTIONS = [
+    Vec2(0, -1),
+    Vec2(1, 0),
+    Vec2(0, 1),
+    Vec2(-1, 0)
+]
 
 class Engine:
     _instance = None
@@ -45,11 +48,20 @@ class Engine:
         self.key_map = self.create_key_map()
         self.start_timer = pygame.time.get_ticks()
         self.env_state = {}
+        self.reward = -1
+        self.DIRECTIONS = [
+            Vec2(0, -1),
+            Vec2(1, 0),
+            Vec2(0, 1),
+            Vec2(-1, 0)
+        ]
 
     def initialize_game_objects(self):
         self.initialize_obstacles()
-        self.initialize_agents()
         self.initialize_food()
+        self.initialize_agents()
+        self.init_state_rep()
+        # self.create_grid_representation()
         self.initialize_event_manager()
         self.initialize_renderer()
 
@@ -66,6 +78,10 @@ class Engine:
         self.fruits = (Food(True, self), Food(False, self))
         self.env_state['food'] = [ x.position for x in self.fruits ]
 
+    def init_state_rep(self) -> None:
+        self.rl_STATE = StateRep(self)
+        self.rl_state = self.rl_STATE.update()
+
     def initialize_event_manager(self) -> None:
         self.event_manager = EventManager(self)
 
@@ -74,20 +90,42 @@ class Engine:
 
     def create_key_map(self):
         return {
-            self.e.K_w: DIRECTIONS['UP'],
-            self.e.K_UP: DIRECTIONS['UP'],
-            self.e.K_d: DIRECTIONS['RIGHT'],
-            self.e.K_RIGHT: DIRECTIONS['RIGHT'],
-            self.e.K_a: DIRECTIONS['LEFT'],
-            self.e.K_LEFT: DIRECTIONS['LEFT'],
-            self.e.K_s: DIRECTIONS['DOWN'],
-            self.e.K_DOWN: DIRECTIONS['DOWN']
+            self.e.K_w: DIRECTIONS[3],
+            self.e.K_UP: DIRECTIONS[3],
+            self.e.K_d: DIRECTIONS[0],
+            self.e.K_RIGHT: DIRECTIONS[0],
+            self.e.K_a: DIRECTIONS[3],
+            self.e.K_LEFT: DIRECTIONS[3],
+            self.e.K_s: DIRECTIONS[1],
+            self.e.K_DOWN: DIRECTIONS[1]
         }
 
     def load_image(self, path: str) -> None:
         image = self.e.image.load(path).convert_alpha()
         return self.e.transform.scale(image, (self.width, self.height))
     
+    def create_grid_representation(self) -> None:
+        grid = np.full((self.cell_number, self.cell_number), 0)
+
+        head = self.env_state['snake'][0]
+        tail = self.env_state['snake'][-1]
+        # print(f"head = {head}")
+        obs_1d = [point for sublist in self.env_state['obstacles'] for point in sublist]
+        
+        if 0 <= head.x < self.cell_number and 0 <= head.y < self.cell_number and head not in obs_1d:
+            for obs in obs_1d:
+                grid[obs.x][obs.y] = 1
+
+            for food in self.env_state['food']:
+                grid[food.x][food.y] = 0
+
+            for body_part in self.env_state['snake']:
+                if body_part != tail and body_part != head:
+                    grid[body_part.x][body_part.y] = 1
+
+            self.rl_state = grid.flatten()
+            # print(self.rl_state)
+
     def update_env_state(self) -> None:
         if not self.snake.direction.zero:
             self.snake.move()
@@ -96,23 +134,32 @@ class Engine:
         for i, v in enumerate(self.fruits):
             self.fruits[i].update(self.env_state)
             self.env_state['food'][i] = v.position
+        self.rl_state = self.rl_STATE.update()
+
 
     def check_collision(self) -> None:
         head = self.snake.head
         if head == self.fruits[0].position:
             self.fruits[0].update(self.env_state, True)
             self.snake.grow = True
+            self.reward = 10
         elif head == self.fruits[1].position:
             self.fruits[1].update(self.env_state, True)
             self.snake.shrink = True
+            self.reward = -10
         elif self.snake.snakeLength <= 1 or len(self.snake.body) != len(set(self.snake.body)):
             self.death = True
+            self.reward = -100
         elif not 0 <= head.x < self.cell_number or not 0 <= head.y < self.cell_number:
             self.death = True
+            self.reward = -100
         for obs in self.obstacles:
             if self.snake.head in obs.blocks:
                 self.death = True
+                self.reward = -100
                 break
+        if not self.death:
+            self.reward = -1
 
     def add_occupied_position(self, position):
         self.occupied_positions.add(position)
@@ -129,3 +176,4 @@ class Engine:
             fruit.update(self.env_state, self.death)
         self.death = False
         # print(self.env_state)
+        self.rl_state = self.rl_STATE.update()

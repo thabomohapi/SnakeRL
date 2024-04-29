@@ -1,5 +1,6 @@
 import heapq, random
 from Env_utils import Vec2
+from collections import deque
 
 class Node:
     def __init__(self, position: 'Vec2', parent = None) -> None:
@@ -12,11 +13,105 @@ class Node:
     def __lt__(self, other) -> bool:
         return self.f < other.f
 
-def heuristic(pos, goal):
-    # Use Manhattan distance as heuristic
-    return abs(pos.x - goal.x) + abs(pos.y - goal.y)
+# heuristic function using Chebyshev distance
+def heuristic(pos, goal, voronoi_area, weight = 1.0):
+    return (weight * (abs(pos.x - goal.x) + abs(pos.y - goal.y))) - voronoi_area
 
-def a_star_search(start: 'Vec2', goal: 'Vec2', obstacles, grid_size):
+def generate_voronoi_map(start, obstacles, grid_size):
+    # Initialize the Voronoi map with infinite distances
+    voronoi_map = {Vec2(x, y): float('inf') for x in range(grid_size) for y in range(grid_size)}
+    
+    # Set the distance from the start node to itself as 0
+    voronoi_map[start] = 0
+
+    # Use a queue to perform a breadth-first search
+    queue = deque([start])
+
+    # Define possible movements (up, down, left, right)
+    movements = [Vec2(0, -1), Vec2(0, 1), Vec2(-1, 0), Vec2(1, 0)]
+
+    # Perform the breadth-first search
+    while queue:
+        current = queue.popleft()
+        for move in movements:
+            neighbor = current + move
+            if (0 <= neighbor.x < grid_size and 0 <= neighbor.y < grid_size and
+                neighbor not in obstacles and voronoi_map[neighbor] == float('inf')):
+                voronoi_map[neighbor] = voronoi_map[current] + 1
+                queue.append(neighbor)
+
+    return voronoi_map
+
+def generate_voronoi_area(start, obstacles,snake, grid_size):
+    visited = set([start])
+    queue = deque([start])
+    area = 0
+
+    while queue:
+        current = queue.popleft()
+        for direction in [Vec2(0, -1), Vec2(0, 1), Vec2(-1, 0), Vec2(1, 0)]:
+            neighbor = current + direction
+            if (0 <= neighbor.x < grid_size and
+                0 <= neighbor.y < grid_size and
+                neighbor not in obstacles and
+                neighbor not in snake and
+                neighbor not in visited):
+                visited.add(neighbor)
+                queue.append(neighbor)
+                area += 1
+
+    return area
+
+def find_stalling_path(start, obstacles, grid_size):
+    # Find the path that maximizes the distance traveled without hitting obstacles or borders
+    path = [start]
+    current_position = start
+    visited = set([start])
+
+    directions = [Vec2(0, -1), Vec2(0, 1), Vec2(-1, 0), Vec2(1, 0)]
+    while True:
+        next_steps = []
+        for direction in directions:
+            next_position = current_position + direction
+            if (next_position.x >= 0 and next_position.x < grid_size and
+                next_position.y >= 0 and next_position.y < grid_size and
+                next_position not in obstacles and
+                next_position not in visited):
+                next_steps.append(next_position)
+
+        if not next_steps:
+            break  # No more steps available, end stalling
+
+        # Choose the step that keeps the snake furthest from the walls and obstacles
+        next_position = max(next_steps, key=lambda pos: min(pos.x, grid_size - 1 - pos.x, pos.y, grid_size - 1 - pos.y))
+        path.append(next_position)
+        current_position = next_position
+        visited.add(next_position)
+
+        # Check if the snake is about to trap itself
+        if len(next_steps) == 1:
+            break
+
+    return path
+
+def is_position_dangerous(head, pos, obstacles, grid_size):
+    signal = 0
+    for direction in [Vec2(0, -1), Vec2(0, 1), Vec2(-1, 0), Vec2(1, 0)]:
+        neighbor = pos + direction
+        if (neighbor.x > (grid_size - 1) or
+            neighbor.x < 0 or
+            neighbor.y > (grid_size - 1) or
+            neighbor.y < 0 or
+            neighbor in obstacles and
+            neighbor != head 
+        ):
+            signal += 1
+    if signal > 2:
+        return True
+    return False
+
+def a_star_search(start: 'Vec2', goal: 'Vec2', obstacles, grid_size, snake, weight = 1.0):
+    voronoi_area = generate_voronoi_area(goal, obstacles,snake, grid_size)
     # Create start and goal nodes
     start_node = Node(start, None)
     start_node.g = start_node.h = start_node.f = 0
@@ -30,7 +125,7 @@ def a_star_search(start: 'Vec2', goal: 'Vec2', obstacles, grid_size):
     # Add the start node to the open list
     heapq.heappush(open_list, start_node)
 
-    closest_node = None
+    stall = find_stalling_path(start, obstacles, grid_size)
 
     # Loop until the open list is empty
     while open_list:
@@ -40,11 +135,14 @@ def a_star_search(start: 'Vec2', goal: 'Vec2', obstacles, grid_size):
 
         # Check if we have reached the goal
         if current_node.position == goal:
-            path = []
-            while current_node is not None:
-                path.append(current_node.position)
-                current_node = current_node.parent
-            return path[::-1]  # Return reversed path
+            if voronoi_area >= (pow(grid_size, 2) * 0.1):
+                path = []
+                while current_node is not None:
+                    path.append(current_node.position)
+                    current_node = current_node.parent
+                return path[::-1]  # Return reversed path
+            else:
+                return stall
 
         # Generate children (adjacent positions)
         children = []
@@ -56,12 +154,13 @@ def a_star_search(start: 'Vec2', goal: 'Vec2', obstacles, grid_size):
                 node_position.x < 0 or
                 node_position.y > (grid_size - 1) or
                 node_position.y < 0 or
-                node_position in obstacles):
+                node_position in obstacles or
+                node_position in closed_list
+            ):
                 continue
 
             # Create new node and set parent
             new_node = Node(node_position, current_node)
-
             # Append to children list
             children.append(new_node)
 
@@ -73,12 +172,8 @@ def a_star_search(start: 'Vec2', goal: 'Vec2', obstacles, grid_size):
 
             # Create the f, g, and h values
             child.g = current_node.g + 1
-            child.h = heuristic(child.position, goal)
+            child.h = heuristic(child.position, goal, voronoi_area, weight)
             child.f = child.g + child.h
-
-            # Update the closest node if necessary
-            if closest_node is None or child.h < closest_node.h:
-                closest_node = child
 
             # Check if child is in the open list and if it has a higher g value
             in_open_list = False
@@ -93,24 +188,13 @@ def a_star_search(start: 'Vec2', goal: 'Vec2', obstacles, grid_size):
             # Add the child to the open list
             heapq.heappush(open_list, child)
 
-    # If the open list is empty and the goal wasn't reached
-    if closest_node is not None:
-        path = []
-        current_node = closest_node
-        while current_node is not None:
-            path.append(current_node.position)
-            current_node = current_node.parent
-        return path[::-1]  # Return path to the closest node
-    else:
-        # Define all possible directions
-        directions = [Vec2(0, -1), Vec2(0, 1), Vec2(-1, 0), Vec2(1, 0)]
 
-        # Filter out invalid directions
-        valid_directions = [d for d in directions if start + d not in obstacles and
-                            0 <= start.x + d.x < grid_size and
-                            0 <= start.y + d.y < grid_size]
-
-        # If there are valid directions, return a random one
-        if valid_directions:
-            return [start + random.choice(valid_directions)]
-        return None  # No path found
+    # # Path extensions when snake is trapped
+    # if not open_list:
+    #     # Find the largest open area using Voronoi regions
+    #     max_voronoi_value = max(voronoi_map.values())
+    #     largest_open_areas = [pos for pos, value in voronoi_map.items() if value == max_voronoi_value]
+    #     if largest_open_areas:
+    #         # Choose a random position from the largest open areas
+    #         return [start, random.choice(largest_open_areas)]
+    return stall

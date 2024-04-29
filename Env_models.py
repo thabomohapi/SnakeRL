@@ -1,3 +1,4 @@
+import sys
 from Env_utils import Vec2, random, time
 
 class GameObject:
@@ -52,7 +53,7 @@ class Snake(GameObject):
 
     def find_valid_starting_position(self) -> list:
         # Define the length of the snake to spawn
-        snake_length = 3
+        snake_length = self.init_snakeLength
         # Get all possible starting positions
         all_possible_positions = set(Vec2(x, y) for x in range(self.engine.cell_number) for y in range(self.engine.cell_number))
         # Filter out positions that don't have enough space for the snake's body
@@ -80,7 +81,7 @@ class Snake(GameObject):
         if self.body:
             self.direction = Vec2(0, 0)  # Set initial direction to stationary
             self.snakeLength = len(self.body)
-            self.score = self.snakeLength
+            self.score = 0
             self.grow = False
             self.shrink = False
             self.death = False
@@ -89,8 +90,10 @@ class Snake(GameObject):
                 self.engine.add_occupied_position(pos)
             self.update_head_tail()
             state['snake'] = self.body
+            # self.engine.create_grid_representation()
         else:
             print("No valid starting positions available to spawn the snake.")
+            sys.exit()
 
 class Food(GameObject):
     def __init__(self, is_good: bool, engine: object) -> None:
@@ -112,6 +115,7 @@ class Food(GameObject):
             self.engine.add_occupied_position(self.position)
         else:
             print("No valid food positions available")
+            self.engine.create_grid_representation()
 
     def find_valid_food_positions(self):
         # Get all possible positions on the board
@@ -169,8 +173,8 @@ class Obstacle(GameObject):
 
     def randomize_position(self) -> 'Vec2':
         # randomize position ensuring it's not occupied by any of the existing game objects
-        all_possible_positions = set(Vec2(x, y) for x in range(self.engine.cell_number)
-                                     for y in range(self.engine.cell_number))
+        all_possible_positions = set(Vec2(x, y) for x in range(self.engine.cell_number - 1)
+                                     for y in range(self.engine.cell_number - 1))
         unoccupied_positions = list(all_possible_positions - self.engine.occupied_positions)
 
         if unoccupied_positions: return random.choice(unoccupied_positions)
@@ -187,7 +191,7 @@ class Obstacle(GameObject):
                 Vec2(block.x, block.y - 1)
             ]
             for pos in potential_positions:
-                if pos not in self.engine.occupied_positions and pos not in existing_blocks:
+                if pos not in self.engine.occupied_positions and pos not in existing_blocks and pos.x < self.engine.cell_number and pos.y < self.engine.cell_number:
                     adjacent_positions.append(pos)
 
         if adjacent_positions: return random.choice(adjacent_positions)

@@ -1,4 +1,17 @@
-import random, time
+import random, time, cProfile, pstats, matplotlib.pyplot as plt
+from IPython import display
+
+class Profiler:
+    def __init__(self) -> None:
+        self.profiler = cProfile.Profile()
+        self.profiler.enable()
+
+    def get_stats(self) -> None:
+        self.profiler.disable()
+        self.stats = pstats.Stats(self.profiler).sort_stats('cumtime')
+        self.stats.print_stats() 
+
+    
 
 class Vec2:
     def __init__(self, x: float, y: float) -> None:
@@ -12,6 +25,9 @@ class Vec2:
 
     def negate(self) -> 'Vec2':
         return Vec2(-self.x, -self.y)
+    
+    def swap(self) -> 'Vec2':
+        return Vec2(self.y, self.x)
 
     def __add__(self, other: 'Vec2') -> 'Vec2':
         if not isinstance(other, Vec2):
@@ -32,3 +48,23 @@ class Vec2:
     
     def __str__(self) -> str:
         return f"Vec2({self.x}, {self.y})"
+    
+
+class Plotter:
+    def __init__(self, scores, mean_scores) -> None:
+        plt.ion()
+        self.scores = scores
+        self.mean_scores = mean_scores
+
+    def plot(self) -> None:
+        display.clear_output(wait=True)
+        # display.display(plt.gcf())
+        plt.clf()
+        plt.title('Training...')
+        plt.xlabel('Number of games')
+        plt.ylabel('Score')
+        plt.plot(self.scores)
+        plt.plot(self.mean_scores)
+        plt.ylim(ymin = 0)
+        plt.text(len(self.scores) - 1, self.scores[-1], str(self.scores[-1]))
+        plt.text(len(self.mean_scores) - 1, self.mean_scores[-1], str(self.mean_scores[-1]))
