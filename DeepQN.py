@@ -1,25 +1,41 @@
 import torch, numpy as np # type: ignore
 import torch.nn as nn # type: ignore
 import torch.optim as optim # type: ignore
-import torch.nn.functional as functional # type: ignore
 import os
 
-class DQN(nn.Module):
-    def __init__(self, input_size, hidden_size1, hidden_size2, hidden_size3, output_size) -> None:
-        super().__init__()
-        self.layer1 = nn.Linear(input_size, hidden_size1)
-        self.layer2 = nn.Linear(hidden_size1, hidden_size2)
-        self.layer3 = nn.Linear(hidden_size2, hidden_size3)
-        self.layer4 = nn.Linear(hidden_size3, output_size)
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = "cpu"
 
-    def forward(self, x):
-        x = functional.relu(self.layer1(x))
-        x = functional.relu(self.layer2(x))
-        x = functional.relu(self.layer3(x))
-        x = self.layer4(x)
-        return x
+class DQN(nn.Module):
+    def __init__(self, input_size, hidden_layers, output_size) -> None:
+        super().__init__()
+        self.h_layers = []
+        self.inputLayer = nn.Linear(input_size, hidden_layers[0])
+        if len(hidden_layers) > 1:
+            for i in range (len(hidden_layers) - 1):
+                self.h_layers.append(nn.Linear(hidden_layers[i], hidden_layers[i + 1]))
+        self.outputLayer = nn.Linear(hidden_layers[-1], output_size)
+        self.to(DEVICE)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x.to(DEVICE)  # Ensure input tensor is on the right device
+        x = torch.relu(self.inputLayer(x))
+        for layer in self.h_layers:
+            x = torch.relu(layer(x))
+        return self.outputLayer(x)
     
-    def save(self, file_name = 'model.pth') -> None:
+    def load(self, file_name: str = 'model.pth') -> None:
+        model_folder_path = './model'
+        file_name = os.path.join(model_folder_path, file_name)
+        
+        if os.path.isfile(file_name):
+            self.load_state_dict(torch.load(file_name))
+            self.to(DEVICE)
+            print(f'Model loaded from {file_name}.')
+        else:
+            print(f'No model file found at {file_name}. Starting from scratch.')
+    
+    def save(self, file_name: str = 'model.pth') -> None:
         model_folder_path = './model'
         if not os.path.exists(model_folder_path):
             os.makedirs(model_folder_path)
@@ -31,19 +47,21 @@ class Trainer:
     def __init__(self, model, lr, γ) -> None:
         self.lr = lr
         self.γ = γ
-        self.model = model
+        self.model = model.to(DEVICE)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
         self.loss_fn = nn.SmoothL1Loss()
+        # self.loss_fn = nn.MSELoss()
 
     def train(self, state, action, reward, next_state, death) -> None:
-        state = torch.tensor(np.array(state), dtype=torch.float32)
-        next_state = torch.tensor(np.array(next_state), dtype=torch.float32)
-        action = torch.tensor(np.array(action), dtype=torch.long)
-        reward = torch.tensor(np.array([reward]), dtype=torch.float32)
+        state = torch.tensor(np.array(state), dtype=torch.float32).to(DEVICE)
+        next_state = torch.tensor(np.array(next_state), dtype=torch.float32).to(DEVICE)
+        action = torch.tensor(np.array(action), dtype=torch.long).to(DEVICE)
+        reward = torch.tensor(np.array([reward]), dtype=torch.float32).to(DEVICE)
+        # death = torch.tensor(death, dtype=torch.bool).to(DEVICE)
 
         # Ensure tensors have the correct shape for batch processing
         state = torch.unsqueeze(state, 0) if state.dim() == 1 else state
-        next_state = torch.unsqueeze(next_state, 0) if next_state.dim() == 1 else state
+        next_state = torch.unsqueeze(next_state, 0) if next_state.dim() == 1 else next_state
         action = torch.unsqueeze(action, 0) if action.dim() == 1 else action
         reward = torch.unsqueeze(reward, 0) if reward.dim() == 1 else reward
         death = (death, ) if isinstance(death, bool) else death
@@ -60,10 +78,8 @@ class Trainer:
         for i in range(len(death)):
             Q_new = reward[0][i]
             if not death[i]:  # Check if not dead
-                Q_new = reward[0][i] + self.γ * torch.max(self.model(next_state[i]))
+                Q_new = reward[0][i] + self.γ * torch.max(self.model(next_state[i]).detach())
             # Assume action is a one-hot encoded tensor
-            # print(f"Q_new = {Q_new}")
-            # print(target[i][torch.argmax(action[i]).item()])
             target[i][torch.argmax(action[i]).item()] = Q_new
 
         self.optimizer.zero_grad()  # empty the gradients

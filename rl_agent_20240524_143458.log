@@ -1,0 +1,13 @@
+2024-05-24 14:34:58,517 - Agent - INFO - Game: 0, Score: 0, Reward: -5, Epsilon: 1.0
+2024-05-24 14:34:59,845 - Agent - INFO - Game: 1, Score: 0, Reward: -75, Epsilon: 0.995
+2024-05-24 14:35:00,564 - Agent - INFO - Game: 2, Score: 0, Reward: 29, Epsilon: 0.990025
+2024-05-24 14:35:02,688 - Agent - INFO - Game: 3, Score: 0, Reward: -84, Epsilon: 0.985074875
+2024-05-24 14:35:02,743 - Agent - INFO - Game: 4, Score: 0, Reward: -1, Epsilon: 0.9801495006250001
+2024-05-24 14:35:03,102 - Agent - INFO - Game: 5, Score: 0, Reward: 52, Epsilon: 0.9752487531218751
+2024-05-24 14:35:03,220 - Agent - INFO - Game: 6, Score: 0, Reward: -17, Epsilon: 0.9703725093562657
+2024-05-24 14:35:03,405 - Agent - INFO - Game: 7, Score: 0, Reward: -13, Epsilon: 0.9655206468094844
+2024-05-24 14:35:03,704 - Agent - INFO - Game: 8, Score: 0, Reward: -48, Epsilon: 0.960693043575437
+2024-05-24 14:35:04,735 - Agent - INFO - Game: 9, Score: -1, Reward: -204, Epsilon: 0.9558895783575597
+2024-05-24 14:35:04,797 - Agent - INFO - Game: 10, Score: 0, Reward: -1, Epsilon: 0.9511101304657719
+2024-05-24 14:35:05,649 - Agent - INFO - Game: 11, Score: 0, Reward: -161, Epsilon: 0.946354579813443
+2024-05-24 14:35:06,362 - Agent - INFO - Game: 12, Score: 0, Reward: 68, Epsilon: 0.9416228069143757

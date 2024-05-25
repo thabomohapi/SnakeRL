@@ -15,7 +15,8 @@ class Snake(GameObject):
     def __init__(self, engine: object, size: int = 3) -> None:
         super().__init__(engine)
         self.init_snakeLength = size
-        self.reset(self.engine.env_state)
+        self.body = None
+        self.reset()
 
     def update_head_tail(self):
         self.head = self.body[0]
@@ -33,21 +34,24 @@ class Snake(GameObject):
                            self.engine.cell_size, self.engine.cell_size)
         self.engine.e.draw.rect(self.engine.screen, color, rect)
 
+    def bad_block(self, block) -> bool:
+        return self.engine.is_wall(block) or self.engine.is_obstacle(block) or self.engine.is_snake_body(block)
+
     def move(self) -> None:
         if self.shrink and len(self.body) > 1:
+            # self.engine.remove_occupied_position(self.body[-1])
             self.body.pop()
-            self.engine.remove_occupied_position(self.tail)
             self.shrink = False
             self.score -= 1
         else:
             self.body.insert(0, self.head + self.direction)
-            self.engine.add_occupied_position(self.body[0])
+            # if not self.bad_block(self.body[0]): self.engine.add_occupied_position(self.body[0])
             if self.grow: 
                 self.score += 1
                 self.grow = False
             else:
+                # if not self.bad_block(self.body[0]): self.engine.remove_occupied_position(self.body[-1])
                 self.body.pop()
-                self.engine.remove_occupied_position(self.tail)
                 
         self.update_head_tail()
 
@@ -56,13 +60,17 @@ class Snake(GameObject):
         snake_length = self.init_snakeLength
         # Get all possible starting positions
         all_possible_positions = set(Vec2(x, y) for x in range(self.engine.cell_number) for y in range(self.engine.cell_number))
+        all_possible_positions = all_possible_positions - self.engine.occupied_positions
         # Filter out positions that don't have enough space for the snake's body
-        valid_starting_positions = [pos for pos in all_possible_positions if self.has_enough_space(pos, snake_length)]
+        valid_starting_positions = [pos for pos in all_possible_positions if self.has_enough_space(pos, self.init_snakeLength)]
         # Randomly choose one of the valid starting positions
         if valid_starting_positions:
             start_pos = random.choice(valid_starting_positions)
             # Create the snake's body based on the starting position
-            return [start_pos + Vec2(-i, 0) for i in range(snake_length)]
+            body = [start_pos + Vec2(-i, 0) for i in range(snake_length)]
+            # for block in body:
+            #     self.engine.add_occupied_position(block)
+            return body
         return None
     
     def has_enough_space(self, start_pos: 'Vec2', length: int) -> bool:
@@ -75,7 +83,10 @@ class Snake(GameObject):
                 return False
         return True
 
-    def reset(self, state) -> None:
+    def reset(self) -> None:
+        # if self.body is not None:
+        #     for block in self.body:
+        #         self.engine.remove_occupied_position(block)
         # Find a valid starting position for the snake's head
         self.body = self.find_valid_starting_position()
         if self.body:
@@ -85,12 +96,10 @@ class Snake(GameObject):
             self.grow = False
             self.shrink = False
             self.death = False
-            for pos in self.body:
-                pos.reward = -100
-                self.engine.add_occupied_position(pos)
+            # for pos in self.body:
+            #     pos.reward = -100
+            #     self.engine.add_occupied_position(pos)
             self.update_head_tail()
-            state['snake'] = self.body
-            # self.engine.create_grid_representation()
         else:
             print("No valid starting positions available to spawn the snake.")
             sys.exit()
@@ -101,18 +110,20 @@ class Food(GameObject):
         self.is_good = is_good
         self.last_update_time = time.time()
         self.update_interval = 20 # update position after every 20seconds
+        self.position = None
         self.update_position()
 
     def update_position(self):
         valid_positions = self.find_valid_food_positions()
         if valid_positions:
+            # self.engine.remove_occupied_position(self.position)
             self.position = random.choice(valid_positions)
             self.position.reward = -1
             self.pos = (int(self.position.x * self.engine.cell_size), int(self.position.y * self.engine.cell_size))
             if self.is_good:
                 self.position.reward = 10
             else: self.position.reward = -10
-            self.engine.add_occupied_position(self.position)
+            # self.engine.add_occupied_position(self.position)
         else:
             print("No valid food positions available")
             self.engine.create_grid_representation()
@@ -123,7 +134,8 @@ class Food(GameObject):
         # Filter out positions occupied by the snake or obstacles
         valid_positions = all_possible_positions - self.engine.occupied_positions
         # Filter out positions that would trap the snake
-        valid_positions = [pos for pos in valid_positions if self.is_reachable_by_snake(pos)]
+        # valid_positions = [pos for pos in valid_positions if self.is_reachable_by_snake(pos)]
+        valid_positions = [pos for pos in valid_positions]
         return valid_positions
     
     def is_reachable_by_snake(self, pos: Vec2) -> bool:
@@ -139,7 +151,7 @@ class Food(GameObject):
         # Draw a circle at the center_pos with a radius of half the cell size
         self.engine.e.draw.circle(self.engine.screen, color, center_pos, self.engine.cell_size // 2)
 
-    def update(self, state, ate : bool = False, died: bool = False) -> None:
+    def update(self, ate : bool = False, died: bool = False) -> None:
         if ate or died: 
             self.update_position()
             self.last_update_time = time.time()
@@ -152,11 +164,11 @@ class Food(GameObject):
                 self.last_update_time = time.time()
 
 class Obstacle(GameObject):
-    def __init__(self, engine: object, num_blocks: int, position: 'Vec2' = None) -> None:
+    def __init__(self, engine: object, num_blocks: int = 1, position: 'Vec2' = None, blocks: list = None) -> None:
         super().__init__(engine)
         self.num_blocks = num_blocks
         self.blocks = []
-        self.blocks = self.generate_blocks(position)
+        self.blocks = self.generate_blocks(position) if blocks is None else blocks
     
     def generate_blocks(self, start_position: 'Vec2') -> list:
         if start_position is None:

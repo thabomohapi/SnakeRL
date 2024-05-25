@@ -2,10 +2,12 @@ import Env, sys, random, torch, numpy as np # type: ignore
 from Search import a_star_search
 from collections import deque
 from DeepQN import DQN, Trainer
+import logging
+from datetime import datetime
 
-MAX_MEMORY = 100000
+MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
-
+ 
 class Agent:
     def __init__(self, engine: object) -> None:
         self.engine = engine
@@ -59,22 +61,25 @@ class SearchAgent(Agent):
         sys.exit()
 
 class RLAgent(Agent):
-    def __init__(self, engine: object, lr = 0.01, ε = 1.0, γ = 0.75) -> None:
+    def __init__(self, engine: object, lr, ε, ε_min, ε_decay, γ, nn_hidden) -> None:
         super().__init__(engine)
         self.ε = ε
-        self.ε_min = 0.01
-        self.ε_decay = 0.995
+        self.ε_min = ε_min
+        self.ε_decay = ε_decay
         self.γ = γ
         self.lr = lr
-        # print(self.engine.rl_state)
-        self.state = self.get_state()
+        self.nn_hidden = nn_hidden
+        self.hidden_layers = [pow(2, 8)]
+        self.hidden_layers = self.nn_hidden * self.hidden_layers
+        print(self.engine.rl_state)
+         
         self.state_size = len(self.engine.rl_state)
-        # print(f"State size = {self.state_size}")
+        print(f"State size = {self.state_size}")
         self.action_size = 3 
         self.replay_buffer = deque(maxlen=MAX_MEMORY)
-        self.model = DQN(self.state_size, pow(2, 8), pow(2, 8), pow(2, 8), self.action_size)
+        self.model = DQN(self.state_size, self.hidden_layers, self.action_size)
         self.trainer = Trainer(self.model, lr=self.lr, γ = self.γ)
-        self.ACTION = [1, 0, 0]
+        self.ACTION = [0, 0, 0]
 
     def get_state(self) -> list:
         return self.engine.rl_state
@@ -82,36 +87,35 @@ class RLAgent(Agent):
     def update_epsilon(self) -> None:
         self.ε = max(self.ε_min, self.ε * self.ε_decay)
     
-    def convert_move_to_action(self, move: list) -> 'Env.Vec2':
+    def get_direction(self, move: list) -> 'Env.Vec2':
         action = Env.Vec2(0, 0)
         if move == [1, 0, 0]: # move straight
-            action = self.engine.snake.head + self.engine.snake.body[1].negate()
+            action = self.engine.snake.head - self.engine.snake.body[1]
         elif move == [0, 1, 0]: # move right
-            dir = self.engine.snake.head + self.engine.snake.body[1].negate()
-            action = dir.swap() if dir.x != 0 else dir.swap().negate()
-        else: # move left
-            dir = self.engine.snake.head + self.engine.snake.body[1].negate()
-            action = dir.swap().negate() if dir.x != 0 else dir.swap()
+            dir = self.engine.snake.head - self.engine.snake.body[1]
+            action = dir.swap() if dir.x != 0 else -dir.swap()
+        elif move == [0, 0, 1]: # move left
+            dir = self.engine.snake.head - self.engine.snake.body[1]
+            action = -dir.swap() if dir.x != 0 else dir.swap()
         return action
     
-    def choose_action(self) -> Env.Vec2:
+    def choose_action(self, state: list) -> Env.Vec2:
         # epsilon-greedy
-        # self.ε = 80 - self.num_games
         move = [0, 0, 0]
         if np.random.rand() <= self.ε:
             move_idx = random.randint(0, 2)
             move[move_idx] = 1
-        # if random.randint(0, 200) < self.ε:
-        #     move_idx = random.randint(0, 2)
-        #     move[move_idx] = 1
+            # print(f"Move = {move}")
         else:
-            state = self.state.copy()
-            state = torch.tensor(state, dtype=torch.float32)
-            prediction = self.model(state)[0]
+            stateCopy = state.copy()
+            stateCopy = torch.tensor(stateCopy, dtype=torch.float32)
+            prediction = self.model(stateCopy)
+            print(f"Prediction = {prediction}")
             move_idx = torch.argmax(prediction).item()
             move[move_idx] = 1
         self.ACTION = move
-        return self.convert_move_to_action(move)
+        dir = self.get_direction(move)
+        return dir
 
     def remember(self, state, action, reward, next_state, death) -> None:
         self.replay_buffer.append((state, action, reward, next_state, death))
@@ -128,6 +132,32 @@ class RLAgent(Agent):
         states, actions, rewards, next_states, deaths = zip(*sub_sample)
         self.trainer.train(states, actions, rewards, next_states, deaths)
 
+    def setup_logging(self):
+        # Create a custom logger
+        self.logger = logging.getLogger(__name__)
+        
+        # Set the log level
+        self.logger.setLevel(logging.INFO)
+        
+        # Create handlers (console and file handlers)
+        c_handler = logging.StreamHandler()
+        f_handler = logging.FileHandler(f'rl_agent_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
+        
+        # Create formatters and add it to handlers
+        c_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+        f_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        c_handler.setFormatter(c_format)
+        f_handler.setFormatter(f_format)
+        
+        # Add handlers to the logger
+        self.logger.addHandler(c_handler)
+        self.logger.addHandler(f_handler)
+
+    def log_performance(self, score, reward, epsilon, state, action, dir):
+        # Log performance metrics
+        # self.logger.info(f'Game: {self.num_games}, Score: {score}, Reward: {reward}, Epsilon: {epsilon} State: {state} Action: {action} SnakeDirection: {dir}')
+        self.logger.info(f'Game: {self.num_games}, Score: {score}, Reward: {reward}, Epsilon: {epsilon}')
+
     def play(self) -> None:
         return super().play()
 
@@ -135,21 +165,24 @@ class RLAgent(Agent):
         plot_scores = []
         plot_mean_scores = []
         total_score = 0
-        self.engine.e.time.set_timer(self.engine.SCREEN_UPDATE, 80)
+        self.engine.e.time.set_timer(self.engine.SCREEN_UPDATE, 60)
         self.engine.running = True
+        reward = 0
         
         while self.engine.running:
-            state = self.state
-            action = self.choose_action()
+            state = self.get_state()
+            dir = self.engine.snake.body[0] - self.engine.snake.body[1]
+            action = self.choose_action(state) 
             self.engine.event_manager.handle_keys(action) # play action/step function
-
-            self.engine.event_manager.handle_events() # refresh game_state/display
+            reward += self.engine.reward
+            self.engine.event_manager.handle_events() # refresh game_state/display or quit
             self.engine.renderer.update_high_score()
-
+            next_state = self.get_state()
             self.train_short_term_memory(state, self.ACTION, self.engine.reward,
-                                        self.get_state(), self.engine.death)    
-            
+                                        next_state, self.engine.death)    
+
             if self.engine.death:
+                self.log_performance(self.engine.snake.score, reward, self.ε, state, self.ACTION, dir)
                 # train long term memory and plot results
                 self.train_long_term_memory()
                 self.update_epsilon()
@@ -157,11 +190,12 @@ class RLAgent(Agent):
 
                 if self.engine.snake.score >= self.engine.renderer.high_score:
                     self.model.save()
-                print(f"Game {self.num_games}, Score {self.engine.snake.score}, HighScore {self.engine.renderer.high_score}, Reward {self.engine.reward}")
+                # print(f"Game {self.num_games}, Score {self.engine.snake.score},HighScore {self.engine.renderer.high_score}, Reward {reward},Epsilon {self.ε}")
 
                 plot_scores.append(self.engine.snake.score)
                 total_score += self.engine.snake.score
                 self.engine.reset_game()
+                reward = 0
                 mean_score = total_score / self.num_games
                 plot_mean_scores.append(mean_score)
                 plotter = Env.Plotter(plot_scores, plot_mean_scores)
