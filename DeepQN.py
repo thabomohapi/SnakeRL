@@ -3,7 +3,7 @@ import torch.nn as nn # type: ignore
 import torch.optim as optim # type: ignore
 import os
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DEVICE = "cpu"
 
 class DQN(nn.Module):
@@ -31,7 +31,6 @@ class DQN(nn.Module):
         if os.path.isfile(file_name):
             self.load_state_dict(torch.load(file_name))
             self.to(DEVICE)
-            print(f'Model loaded from {file_name}.')
         else:
             print(f'No model file found at {file_name}. Starting from scratch.')
     
@@ -57,7 +56,6 @@ class Trainer:
         next_state = torch.tensor(np.array(next_state), dtype=torch.float32).to(DEVICE)
         action = torch.tensor(np.array(action), dtype=torch.long).to(DEVICE)
         reward = torch.tensor(np.array([reward]), dtype=torch.float32).to(DEVICE)
-        # death = torch.tensor(death, dtype=torch.bool).to(DEVICE)
 
         # Ensure tensors have the correct shape for batch processing
         state = torch.unsqueeze(state, 0) if state.dim() == 1 else state
@@ -65,16 +63,11 @@ class Trainer:
         action = torch.unsqueeze(action, 0) if action.dim() == 1 else action
         reward = torch.unsqueeze(reward, 0) if reward.dim() == 1 else reward
         death = (death, ) if isinstance(death, bool) else death
-
-        # print(f"State: {state}")
-        # print(f"Action: {action}")
-        # print(f"Reward: {reward}")
-        # print(f"Death: {death}")
         
         # get current state Q value
         prediction = self.model(state)
         target = prediction.clone()
-        # print(f"Target = {target}")
+        
         for i in range(len(death)):
             Q_new = reward[0][i]
             if not death[i]:  # Check if not dead

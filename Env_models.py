@@ -39,18 +39,15 @@ class Snake(GameObject):
 
     def move(self) -> None:
         if self.shrink and len(self.body) > 1:
-            # self.engine.remove_occupied_position(self.body[-1])
             self.body.pop()
             self.shrink = False
             self.score -= 1
         else:
             self.body.insert(0, self.head + self.direction)
-            # if not self.bad_block(self.body[0]): self.engine.add_occupied_position(self.body[0])
             if self.grow: 
                 self.score += 1
                 self.grow = False
             else:
-                # if not self.bad_block(self.body[0]): self.engine.remove_occupied_position(self.body[-1])
                 self.body.pop()
                 
         self.update_head_tail()
@@ -96,9 +93,6 @@ class Snake(GameObject):
             self.grow = False
             self.shrink = False
             self.death = False
-            # for pos in self.body:
-            #     pos.reward = -100
-            #     self.engine.add_occupied_position(pos)
             self.update_head_tail()
         else:
             print("No valid starting positions available to spawn the snake.")
@@ -116,7 +110,7 @@ class Food(GameObject):
     def update_position(self):
         valid_positions = self.find_valid_food_positions()
         if valid_positions:
-            # self.engine.remove_occupied_position(self.position)
+            self.engine.remove_occupied_position(self.position)
             self.position = random.choice(valid_positions)
             self.position.reward = -1
             self.pos = (int(self.position.x * self.engine.cell_size), int(self.position.y * self.engine.cell_size))

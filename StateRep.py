@@ -167,33 +167,33 @@ class StateRep:
 
         return state_vector
 
-    # def update_dangers(self):
-    #     # Check for danger in the direction the snake is moving
-    #     self.danger_straight = self.check_danger(self.game_engine.snake.direction)
-
-    #     # Check for danger to the right
-    #     right_direction = Vec2(self.game_engine.snake.direction.y, -self.game_engine.snake.direction.x)
-    #     self.danger_right = self.check_danger(right_direction)
-
-    #     # Check for danger to the left
-    #     left_direction = Vec2(-self.game_engine.snake.direction.y, self.game_engine.snake.direction.x)
-    #     self.danger_left = self.check_danger(left_direction)
-
     def update_dangers(self):
-        head = self.game_engine.snake.head
-        neck = head if not len(self.game_engine.snake.body) > 0 else self.game_engine.snake.body[1]
-        dir = self.engine.snake.direction if head == neck else head - neck
+        # Check for danger in the direction the snake is moving
+        self.danger_straight = self.check_danger(self.game_engine.snake.direction)
 
-        self.danger_straight = self.check_danger(dir)
+        # Check for danger to the right
+        right_direction = Vec2(self.game_engine.snake.direction.y, -self.game_engine.snake.direction.x)
+        self.danger_right = self.check_danger(right_direction)
 
-        self.danger_right = self.check_danger(dir.swap() if dir.x != 0 else -dir.swap())
+        # Check for danger to the left
+        left_direction = Vec2(-self.game_engine.snake.direction.y, self.game_engine.snake.direction.x)
+        self.danger_left = self.check_danger(left_direction)
 
-        self.danger_left = self.check_danger(-dir.swap() if dir.x != 0 else dir.swap())
+    # def update_dangers(self):
+    #     head = self.game_engine.snake.head
+    #     neck = self.game_engine.snake.body[1]
+    #     dir = self.engine.snake.direction if head == neck else head - neck
+
+    #     self.danger_straight = self.check_danger(dir)
+
+    #     self.danger_right = self.check_danger(dir.swap() if dir.x != 0 else dir.swap().negate())
+
+    #     self.danger_left = self.check_danger(dir.swap().negate() if dir.x != 0 else dir.swap())
 
     def check_danger(self, direction):
         # Check if the next cell in the given direction is dangerous (wall, snake's body, or obstacle)
         next_cell = self.game_engine.snake.head + direction
-        return self.game_engine.is_wall(next_cell) or self.game_engine.is_snake_body(next_cell) or self.game_engine.is_obstacle(next_cell)
+        return self.game_engine.is_wall(next_cell) or self.game_engine.is_snake_body(next_cell) or self.game_engine.is_obstacle(next_cell) or self.game_engine.is_bad_apple(next_cell)
  
     def update_food_direction(self):
         # Assuming the first food item in the list is the target
@@ -210,10 +210,10 @@ class StateRep:
                 self.food_directions['southwards'] = 1
 
         # Update the snake's current direction
-        head = self.game_engine.snake.head
-        neck = head if not len(self.game_engine.snake.body) > 0 else self.game_engine.snake.body[1]
-        current_direction = self.engine.snake.direction if head == neck else head - neck
-        # current_direction = self.game_engine.snake.direction
+        # head = self.game_engine.snake.head
+        # neck = head if not len(self.game_engine.snake.body) > 0 else self.game_engine.snake.body[1]
+        # current_direction = self.engine.snake.direction if head == neck else head - neck
+        current_direction = self.game_engine.snake.direction
         if current_direction == Vec2(-1, 0):
             self.directions['west'] = 1
         elif current_direction == Vec2(1, 0):
