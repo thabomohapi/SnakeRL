@@ -102,7 +102,7 @@ class RLAgent(Agent):
     def choose_action(self, state: list) -> Env.Vec2:
         # epsilon-greedy
         move = [0, 0, 0]
-        if np.random.rand() <= self.ε:
+        if np.random.rand() <= self.ε and self.ε > self.ε_min:
             move_idx = random.randint(0, 2)
             move[move_idx] = 1
             # print(f"Move = {move}")
@@ -116,6 +116,12 @@ class RLAgent(Agent):
         dir = self.get_direction(move)
         return dir
     
+    def play_step(self, action: 'Env.Vec2') -> None:
+        self.engine.event_manager.handle_keys(action) # play action/step function
+        
+        self.engine.event_manager.handle_events() # refresh game_state/display or quit
+
+
     def choose_action_play(self, state: list) -> 'Env.Vec2':
         self.model.load('model.pth')
         self.model.eval() # Set the model to evaluation mode (no gradient updates)
@@ -165,25 +171,26 @@ class RLAgent(Agent):
         sys.exit()    
 
     def train(self) -> None:
+        print(f"State size: {self.state_size}")
+        print(f"State: {self.state}")
         plot_scores = []
         plot_mean_scores = []
         total_score = 0
         self.engine.e.time.set_timer(self.engine.SCREEN_UPDATE, 60)
         self.engine.running = True
-        reward = 0
+        cumulative_reward = 0
         plotter = Env.Plotter()
-        
+
         while self.engine.running:
             state = self.get_state()
             action = self.choose_action(state) 
-            self.engine.event_manager.handle_keys(action) # play action/step function
-            self.engine.event_manager.handle_events() # refresh game_state/display or quit
-            reward += self.engine.reward
+            self.play_step(action)
+            cumulative_reward += self.engine.reward
             self.engine.renderer.update_high_score()
             next_state = self.get_state()
             self.train_short_term_memory(state, self.ACTION, self.engine.reward,
                                         next_state, self.engine.death)    
-
+            
             if self.engine.death:
                 # train long term memory and plot results
                 self.train_long_term_memory()
@@ -192,12 +199,12 @@ class RLAgent(Agent):
 
                 if self.engine.snake.score >= self.engine.renderer.high_score:
                     self.model.save()
-                print(f"Game {self.num_games}, Score {self.engine.snake.score}, HighScore {self.engine.renderer.high_score}, Reward {reward}, Epsilon {self.ε}")
+                print(f"Game {self.num_games}, Score {self.engine.snake.score}, HighScore {self.engine.renderer.high_score}, Reward {cumulative_reward}, Epsilon {self.ε}")
 
                 plot_scores.append(self.engine.snake.score)
                 total_score += self.engine.snake.score
                 self.engine.reset_game()
-                reward = 0
+                cumulative_reward = 0
                 mean_score = total_score / self.num_games
                 plot_mean_scores.append(mean_score)
                 plotter.plot(plot_scores, plot_mean_scores)

@@ -3,8 +3,7 @@ import torch.nn as nn # type: ignore
 import torch.optim as optim # type: ignore
 import os
 
-# DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DEVICE = "cpu"
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class DQN(nn.Module):
     def __init__(self, input_size, hidden_layers, output_size) -> None:
@@ -13,7 +12,7 @@ class DQN(nn.Module):
         self.inputLayer = nn.Linear(input_size, hidden_layers[0])
         if len(hidden_layers) > 1:
             for i in range (len(hidden_layers) - 1):
-                self.h_layers.append(nn.Linear(hidden_layers[i], hidden_layers[i + 1]))
+                self.h_layers.append(nn.Linear(hidden_layers[i], hidden_layers[i + 1]).to(DEVICE))
         self.outputLayer = nn.Linear(hidden_layers[-1], output_size)
         self.to(DEVICE)
 
@@ -71,9 +70,9 @@ class Trainer:
         for i in range(len(death)):
             Q_new = reward[0][i]
             if not death[i]:  # Check if not dead
-                Q_new = reward[0][i] + self.γ * torch.max(self.model(next_state[i]).detach())
+                Q_new = Q_new + (self.lr * (reward[0][i] + (self.γ * torch.max(self.model(next_state[i]).detach()) - Q_new)))
             # Assume action is a one-hot encoded tensor
-            target[i][torch.argmax(action[i]).item()] = Q_new
+            target[i][torch.argmax(action).item()] = Q_new
 
         self.optimizer.zero_grad()  # empty the gradients
         loss = self.loss_fn(target, prediction)

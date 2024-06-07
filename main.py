@@ -90,7 +90,7 @@ def start_gui():
 
     # Create sliders for other parameters
     learning_rate_slider = Scale(root, label="Learning Rate", from_=0.0001, to=0.01, resolution=0.0001, orient="horizontal")
-    discount_factor_slider = Scale(root, label="Discount Factor", from_=0.5, to=1.0, resolution=0.01, orient="horizontal")
+    discount_factor_slider = Scale(root, label="Discount Factor", from_=0.0, to=1.0, resolution=0.01, orient="horizontal")
     hidden_layers_slider = Scale(root, label="Hidden Layers", from_=1, to=5, orient="horizontal")
     epsilon_slider = Scale(root, label="Epsilon", from_=0.001, to=1.0, resolution=0.001, orient="horizontal")
     epsilon_decay_slider = Scale(root, label="Epsilon Decay", from_=0.9, to=1.0, resolution=0.001, orient="horizontal")
@@ -143,6 +143,3 @@ def start_gui():
 
 if __name__ == "__main__":
     start_gui()
-    # env = Environment()    
-    # agent = RLAgent(env, lr=0.001, ε=1.0, ε_min=0.01, ε_decay=0.996, γ=0.9, nn_hidden=1)
-    # agent.train()

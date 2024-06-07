@@ -130,12 +130,12 @@ class Environment:
             # Check if the snake got closer or further from the good apple
             if distance_to_good_apple_after < distance_to_good_apple_before:
                 self.reward += 3
-            elif distance_to_good_apple_after > distance_to_good_apple_before:
-                self.reward -= 1.5
+            # elif distance_to_good_apple_after > distance_to_good_apple_before:
+            #     self.reward -= 1.5
 
-            # # Check if the snake got closer to the bad apple
-            # if distance_to_bad_apple_after < distance_to_bad_apple_before:
-            #     self.reward -= 0.5
+            # Check if the snake got closer to the bad apple
+            if distance_to_bad_apple_after < distance_to_bad_apple_before:
+                self.reward -= 0.5
 
             for i, v in enumerate(self.fruits):
                 self.fruits[i].update()
