@@ -5,8 +5,8 @@ from DeepQN import DQN, Trainer
 import logging
 from datetime import datetime
 
-MAX_MEMORY = 100_000
-BATCH_SIZE = 1000
+MAX_MEMORY = 200_000
+BATCH_SIZE = 2000
  
 class Agent:
     def __init__(self, engine: object) -> None:
@@ -118,7 +118,6 @@ class RLAgent(Agent):
     
     def play_step(self, action: 'Env.Vec2') -> None:
         self.engine.event_manager.handle_keys(action) # play action/step function
-        
         self.engine.event_manager.handle_events() # refresh game_state/display or quit
 
 
@@ -126,9 +125,8 @@ class RLAgent(Agent):
         self.model.load('model.pth')
         self.model.eval() # Set the model to evaluation mode (no gradient updates)
         move = [0, 0, 0]
-        stateCopy = state.copy()
-        stateCopy = torch.tensor(stateCopy, dtype=torch.float32)
-        prediction = self.model(stateCopy)
+        tensorState = torch.tensor(state, dtype=torch.float32)
+        prediction = self.model(tensorState)
         move_idx = torch.argmax(prediction)
         move[move_idx] = 1
         self.ACTION = move

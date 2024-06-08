@@ -45,9 +45,14 @@ def start_gui():
     def toggle_sliders(*args):
         mode = mode_var.get()
         if mode == 'rl':
-            # Show the sliders for RL mode
-            for slider in sliders:
-                slider.grid(sticky='nsew', padx=10, pady=5)
+            rl_mode = rl_mode_var.get()
+            if rl_mode == "play":
+                for slider in sliders:
+                    slider.grid_remove()
+            else:    
+                # Show the sliders for RL mode
+                for slider in sliders:
+                    slider.grid(sticky='nsew', padx=10, pady=5)
             train_radio.grid(sticky='nsew', padx=10, pady=5)
             play_radio.grid(sticky='nsew', padx=10, pady=5)
         else:
@@ -79,6 +84,7 @@ def start_gui():
 
     # Create a variable to store the selected rl_mode
     rl_mode_var = tk.StringVar(value="train")
+    rl_mode_var.trace('w', toggle_sliders) 
 
     # Create radio buttons for rl_mode selection
     train_radio = Radiobutton(root, text="Train", variable=rl_mode_var, value="train")
